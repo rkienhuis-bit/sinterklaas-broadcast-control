@@ -5,14 +5,12 @@
   const video = document.getElementById('broadcast-video');
 
   if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
-    status.textContent = 'Supabase-configuratie ontbreekt';
     console.error('Supabase-configuratie ontbreekt');
     return;
   }
 
   if (!cfg.FIREPLACE_VIDEO_URL || !cfg.SPECIAL_VIDEO_URL) {
-    status.textContent = 'Videoconfiguratie ontbreekt';
-    console.error('Een of beide video-URL\'s ontbreken');
+    console.error('Videoconfiguratie ontbreekt');
     return;
   }
 
@@ -25,7 +23,6 @@
   let lastCommand = null;
   let playbackToken = 0;
 
-  // Videoscherm instellen
   function setScreen(mode) {
     document.body.classList.toggle(
       'special-active',
@@ -33,27 +30,22 @@
     );
   }
 
-  // Een MP4 laden en afspelen
   async function playVideo(mode, url, loop = false) {
     const token = ++playbackToken;
 
     currentMode = mode;
-
     setScreen(mode);
 
     video.pause();
-
     video.loop = loop;
     video.volume = 1;
     video.muted = false;
-
     video.src = url;
     video.load();
 
-    status.textContent =
-      mode === 'special'
-        ? 'Sinterklaasuitzending laden…'
-        : 'Openhaard laden…';
+    if (status) {
+      status.textContent = 'Video laden…';
+    }
 
     console.log('Video laden:', mode, url);
 
@@ -62,52 +54,29 @@
 
       if (token !== playbackToken) return;
 
-      console.log(mode + ' gestart met geluid');
-
-      status.textContent =
-        mode === 'special'
-          ? 'Sinterklaasuitzending'
-          : 'Openhaard';
+      console.log(mode + ' gestart');
 
     } catch (error) {
       if (token !== playbackToken) return;
 
-      console.warn(
-        'Afspelen met geluid niet toegestaan:',
-        error.name,
-        error.message
-      );
+      console.warn('Afspelen met geluid mislukt:', error);
 
-      // Tweede poging: automatisch afspelen zonder geluid.
       if (error.name === 'NotAllowedError') {
         try {
           video.muted = true;
-
           await video.play();
 
           if (token !== playbackToken) return;
 
           console.log(mode + ' gestart zonder geluid');
 
-          status.textContent =
-            mode === 'special'
-              ? 'Sinterklaas speelt zonder geluid'
-              : 'Openhaard speelt zonder geluid';
-
-          return;
-
         } catch (mutedError) {
-          if (token !== playbackToken) return;
-
-          console.error('Ook gedempt afspelen mislukt:', mutedError);
+          console.error('Afspelen mislukt:', mutedError);
         }
       }
-
-      status.textContent = 'Video kon niet starten';
     }
   }
 
-  // Openhaardvideo
   function playFireplace() {
     lastCommand = null;
 
@@ -120,7 +89,6 @@
     );
   }
 
-  // Sinterklaasvideo
   function playSpecial(commandId) {
     if (
       currentMode === 'special' &&
@@ -140,40 +108,33 @@
     );
   }
 
-  // Wanneer de Sinterklaasvideo eindigt
+  // Terug naar de openhaard zodra de Sinterklaasvideo eindigt
   video.addEventListener('ended', () => {
     if (currentMode === 'special') {
       console.log('Sinterklaasvideo afgelopen');
-
-    // Start de openhaard
-playFireplace();
-
-// Activeer geluid bij de eerste echte klik
-document.addEventListener('click', async () => {
-  video.muted = false;
-  video.volume = 1;
-
-  try {
-    await video.play();
-    console.log('Geluid geactiveerd');
-  } catch (error) {
-    console.error('Geluid activeren mislukt:', error);
-  }
-}, { once: true });
+      playFireplace();
+    }
+  });
 
   // Videofouten
   video.addEventListener('error', () => {
-    console.error(
-      'Videofout:',
-      video.error
-    );
-
-    status.textContent =
-      'Videofout – controleer de videobron';
-
+    console.error('Videofout:', video.error);
   });
 
-  // Direct starten met de openhaard
+  // Geluid activeren bij de eerste echte klik
+  document.addEventListener('click', async () => {
+    video.muted = false;
+    video.volume = 1;
+
+    try {
+      await video.play();
+      console.log('Geluid geactiveerd');
+    } catch (error) {
+      console.error('Geluid activeren mislukt:', error);
+    }
+  }, { once: true });
+
+  // Start de openhaard
   playFireplace();
 
   // Bestaande Supabase-status ophalen
