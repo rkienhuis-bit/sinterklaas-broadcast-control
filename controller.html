@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101114"><title>Regie | Sinterklaas</title><link rel="stylesheet" href="/style.css"></head>
+<body class="controller"><main class="panel">
+<header><div class="eyebrow">SINTERKLAAS · BROADCAST CONTROL</div><h1>Regie</h1><p class="muted">Bedien de uitzending op afstand.</p></header>
+<section class="current"><div class="eyebrow">HUIDIGE UITZENDING</div><div id="current-title" class="current-title">Status ophalen…</div><div id="connection" class="connection"><span class="dot"></span> Verbinden…</div></section>
+<section class="actions"><button id="start" class="primary" disabled><span>▶</span> Start Sinterklaasvideo</button><button id="return" class="secondary" disabled>Terug naar openhaard</button></section>
+<section class="auth"><label for="pin">Regiecode</label><input id="pin" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="Voer regiecode in"><p class="hint">De regiecode is nodig om de uitzending te wijzigen.</p></section>
+<div id="message" class="message" role="status"></div>
+<footer>Alleen de uitzending verschijnt op het grote scherm.</footer>
+</main><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/config.js"></script><script src="/controller.js"></script></body></html>
