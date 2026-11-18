@@ -1,37 +1,25 @@
 
-<!doctype html>
+<!DOCTYPE html>
 <html lang="nl">
 <head>
-  <meta charset="utf-8">
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
-  >
-  <meta name="theme-color" content="#000000">
-  <title>Sinterklaas Broadcast</title>
-  <link rel="stylesheet" href="/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IPEX Broadcast</title>
 </head>
+<body style="margin:0;background:#000;color:white;font-family:Arial">
 
-<body class="broadcast">
+  <script>
+    const video =
+      "https://www.dropbox.com/scl/fi/d634zzv3494pwo97ifgae/sinterhaard.mp4?rlkey=60h2u6v3s184l8sjlz6vsw7pr&raw=1";
 
-  <main id="stage">
+    setTimeout(() => {
+      window.location.replace(video);
+    }, 1500);
+  </script>
 
-    <video
-      id="broadcast-video"
-      playsinline
-      webkit-playsinline
-      preload="auto"
-    ></video>
-
-    <div id="status" class="status">
-      Verbinding maken…
-    </div>
-
-  </main>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/config.js"></script>
-  <script src="/broadcast.js"></script>
+  <h2 style="text-align:center;padding-top:40px">
+    Sinterklaasuitzending starten...
+  </h2>
 
 </body>
 </html>
