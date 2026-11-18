@@ -145,17 +145,21 @@
     if (currentMode === 'special') {
       console.log('Sinterklaasvideo afgelopen');
 
-     // Start de openhaard
+    // Start de openhaard
 playFireplace();
 
 // Activeer geluid bij de eerste echte klik
-document.addEventListener('click', () => {
+document.addEventListener('click', async () => {
   video.muted = false;
   video.volume = 1;
-  video.play().catch(console.warn);
+
+  try {
+    await video.play();
+    console.log('Geluid geactiveerd');
+  } catch (error) {
+    console.error('Geluid activeren mislukt:', error);
+  }
 }, { once: true });
-    }
-  });
 
   // Videofouten
   video.addEventListener('error', () => {
