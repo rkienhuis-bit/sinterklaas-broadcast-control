@@ -145,7 +145,15 @@
     if (currentMode === 'special') {
       console.log('Sinterklaasvideo afgelopen');
 
-      playFireplace();
+     // Start de openhaard
+playFireplace();
+
+// Activeer geluid bij de eerste echte klik
+document.addEventListener('click', () => {
+  video.muted = false;
+  video.volume = 1;
+  video.play().catch(console.warn);
+}, { once: true });
     }
   });
 
