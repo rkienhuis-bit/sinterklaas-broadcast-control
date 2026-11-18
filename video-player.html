@@ -21,7 +21,9 @@
     const video =
       "https://www.dropbox.com/scl/fi/d634zzv3494pwo97ifgae/sinterhaard.mp4?rlkey=60h2u6v3s184l8sjlz6vsw7pr&raw=1";
 
-    window.location.replace(video);
+    window.location.replace(
+  video.replace("www.dropbox.com", "dl.dropboxusercontent.com")
+);
   </script>
 </body>
 </html>
