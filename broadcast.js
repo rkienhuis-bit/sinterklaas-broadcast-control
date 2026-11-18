@@ -2,74 +2,17 @@
 (() => {
   const cfg = window.APP_CONFIG;
   const status = document.getElementById('status');
-  const video = document.getElementById('special-video');
-  
-// TIJDELIJKE NEPKLIK-TEST
-setTimeout(() => {
-  const x = Math.round(window.innerWidth / 2);
-  const y = Math.round(window.innerHeight / 2);
-
-  const target = document.elementFromPoint(x, y) || document.body;
-
-  const testClickHandler = async (event) => {
-    console.log('Fake click isTrusted:', event.isTrusted);
-    console.log(
-      'User activation:',
-      navigator.userActivation?.hasBeenActive
-    );
-
-    document.body.classList.add('special-active');
-
-    video.pause();
-    video.src = cfg.SPECIAL_VIDEO_URL;
-    video.muted = false;
-    video.volume = 1;
-    video.load();
-
-    try {
-      await video.play();
-
-      status.textContent = 'Nepklik-test: MP4 speelt!';
-      console.log('Nepklik-test: afspelen gelukt');
-
-      setTimeout(() => {
-        video.pause();
-        video.currentTime = 0;
-        video.removeAttribute('src');
-        video.load();
-        document.body.classList.remove('special-active');
-        status.textContent = 'Nepklik-test afgerond';
-      }, 2000);
-
-    } catch (error) {
-      console.error('Nepklik-test mislukt:', error.name, error.message);
-
-      status.textContent = 'Nepklik geblokkeerd: ' + error.name;
-
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
-      document.body.classList.remove('special-active');
-    }
-  };
-
-  target.addEventListener('click', testClickHandler, { once: true });
-
-  const fakeClick = new MouseEvent('click', {
-    bubbles: true,
-    cancelable: true,
-    view: window,
-    clientX: x,
-    clientY: y
-  });
-
-  target.dispatchEvent(fakeClick);
-}, 2500);
-
+  const video = document.getElementById('broadcast-video');
 
   if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
     status.textContent = 'Supabase-configuratie ontbreekt';
     console.error('Supabase-configuratie ontbreekt');
+    return;
+  }
+
+  if (!cfg.FIREPLACE_VIDEO_URL || !cfg.SPECIAL_VIDEO_URL) {
+    status.textContent = 'Videoconfiguratie ontbreekt';
+    console.error('Een of beide video-URL\'s ontbreken');
     return;
   }
 
@@ -78,226 +21,157 @@ setTimeout(() => {
     cfg.SUPABASE_ANON_KEY
   );
 
-  let player = null;
-  let active = false;
+  let currentMode = null;
   let lastCommand = null;
-  let pendingCommandId = null;
-  let mediaUnlocked = false;
+  let playbackToken = 0;
 
-  function showSpecialScreen() {
-    document.body.classList.add('special-active');
+  // Videoscherm instellen
+  function setScreen(mode) {
+    document.body.classList.toggle(
+      'special-active',
+      mode === 'special'
+    );
   }
 
-  function showFireplaceScreen() {
-    document.body.classList.remove('special-active');
-  }
+  // Een MP4 laden en afspelen
+  async function playVideo(mode, url, loop = false) {
+    const token = ++playbackToken;
 
-  // Echte toetsenbord- of afstandsbedieningsinvoer
-  function handleActivationKey(event) {
-    if (!event.isTrusted || mediaUnlocked) return;
+    currentMode = mode;
 
-    // Modifiertoetsen tellen niet als onze activatietoets.
-    if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(event.key)) {
-      return;
-    }
+    setScreen(mode);
 
-    mediaUnlocked = true;
-
-    if (event.cancelable) {
-      event.preventDefault();
-    }
-
-    console.log('Echte toets ontvangen:', {
-      key: event.key,
-      code: event.code,
-      trusted: event.isTrusted,
-      userActivation: navigator.userActivation?.hasBeenActive
-    });
-
-    // MP4-element voorbereiden binnen de echte toetsinteractie.
     video.pause();
-    video.src = cfg.SPECIAL_VIDEO_URL;
-    video.muted = false;
+
+    video.loop = loop;
     video.volume = 1;
+    video.muted = false;
+
+    video.src = url;
     video.load();
 
     status.textContent =
-      `Toets herkend: ${event.key || event.code} – audio voorbereid`;
+      mode === 'special'
+        ? 'Sinterklaasuitzending laden…'
+        : 'Openhaard laden…';
 
-    console.log('MP4 voorbereid voor afspelen met geluid');
+    console.log('Video laden:', mode, url);
 
-    // Was er al een START-commando binnengekomen?
-    if (pendingCommandId) {
-      const commandId = pendingCommandId;
-      pendingCommandId = null;
-      playSpecial(commandId);
-    }
-  }
+    try {
+      await video.play();
 
-  document.addEventListener('keydown', handleActivationKey, true);
+      if (token !== playbackToken) return;
 
-  // YouTube API
-  window.onYouTubeIframeAPIReady = () => {
-    player = new YT.Player('youtube-player', {
-      videoId: cfg.YOUTUBE_VIDEO_ID,
+      console.log(mode + ' gestart met geluid');
 
-      playerVars: {
-        autoplay: 1,
-        controls: 0,
-        disablekb: 1,
-        fs: 0,
-        playsinline: 1,
-        rel: 0,
-        modestbranding: 1,
-        origin: window.location.origin
-      },
+      status.textContent =
+        mode === 'special'
+          ? 'Sinterklaasuitzending'
+          : 'Openhaard';
 
-      events: {
-        onReady: (event) => {
-          console.log('YouTube player gereed');
+    } catch (error) {
+      if (token !== playbackToken) return;
 
-          if (!active) {
-            event.target.mute();
-            event.target.setVolume(100);
-            event.target.playVideo();
-            status.textContent = 'Openhaard';
-          } else {
-            event.target.pauseVideo();
-          }
-        },
+      console.warn(
+        'Afspelen met geluid niet toegestaan:',
+        error.name,
+        error.message
+      );
 
-        onStateChange: (event) => {
-          if (event.data === YT.PlayerState.PLAYING && !active) {
-            console.log('Openhaard speelt (gedempt)');
-            status.textContent = 'Openhaard';
-          }
+      // Tweede poging: automatisch afspelen zonder geluid.
+      if (error.name === 'NotAllowedError') {
+        try {
+          video.muted = true;
 
-          if (event.data === YT.PlayerState.PAUSED) {
-            console.log('YouTube gepauzeerd');
-          }
-        },
+          await video.play();
 
-        onError: (event) => {
-          console.error('YouTube fout:', event.data);
-          status.textContent = 'YouTube kon niet laden';
+          if (token !== playbackToken) return;
+
+          console.log(mode + ' gestart zonder geluid');
+
+          status.textContent =
+            mode === 'special'
+              ? 'Sinterklaas speelt zonder geluid'
+              : 'Openhaard speelt zonder geluid';
+
+          return;
+
+        } catch (mutedError) {
+          if (token !== playbackToken) return;
+
+          console.error('Ook gedempt afspelen mislukt:', mutedError);
         }
       }
-    });
-  };
 
-  const tag = document.createElement('script');
-  tag.src = 'https://www.youtube.com/iframe_api';
-  document.head.appendChild(tag);
-
-  function handleVideoError(error) {
-    if (!active) return;
-
-    console.error('MP4 playback failed:', error);
-
-    active = false;
-    lastCommand = null;
-
-    video.pause();
-    video.removeAttribute('src');
-    video.load();
-
-    showFireplaceScreen();
-
-    if (player) {
-      player.playVideo();
+      status.textContent = 'Video kon niet starten';
     }
-
-    status.textContent = 'MP4 kon niet starten - autoplay of videofout';
   }
 
-  async function playSpecial(commandId) {
-    if (active || lastCommand === commandId) return;
+  // Openhaardvideo
+  function playFireplace() {
+    lastCommand = null;
 
-    // Wachten op echte toetsinvoer als Chrome nog niet geactiveerd is.
-    if (!mediaUnlocked) {
-      pendingCommandId = commandId;
-      status.textContent = 'Wacht op toetsinvoer voor audio';
-      console.log('START ontvangen; wacht op echte toetsinvoer');
+    console.log('Overschakelen naar openhaard');
+
+    playVideo(
+      'fireplace',
+      cfg.FIREPLACE_VIDEO_URL,
+      true
+    );
+  }
+
+  // Sinterklaasvideo
+  function playSpecial(commandId) {
+    if (
+      currentMode === 'special' &&
+      lastCommand === commandId
+    ) {
       return;
     }
 
-    active = true;
     lastCommand = commandId;
-    pendingCommandId = null;
 
-    showSpecialScreen();
+    console.log('START ontvangen:', commandId);
 
-    if (player) {
-      player.pauseVideo();
-    }
-
-    try {
-      video.pause();
-
-      const specialUrl = new URL(
-        cfg.SPECIAL_VIDEO_URL,
-        window.location.href
-      ).href;
-
-      if (video.src !== specialUrl) {
-        video.src = cfg.SPECIAL_VIDEO_URL;
-        video.load();
-      }
-
-      video.muted = false;
-      video.volume = 1;
-
-      status.textContent = 'Sinterklaasuitzending';
-
-      await video.play();
-
-      console.log('Sinterklaasvideo gestart met geluid');
-    } catch (error) {
-      handleVideoError(error);
-    }
+    playVideo(
+      'special',
+      cfg.SPECIAL_VIDEO_URL,
+      false
+    );
   }
 
-  function returnToFireplace() {
-    pendingCommandId = null;
+  // Wanneer de Sinterklaasvideo eindigt
+  video.addEventListener('ended', () => {
+    if (currentMode === 'special') {
+      console.log('Sinterklaasvideo afgelopen');
 
-    if (!active) return;
-
-    active = false;
-    lastCommand = null;
-
-    video.pause();
-    video.removeAttribute('src');
-    video.load();
-
-    showFireplaceScreen();
-
-    status.textContent = 'Openhaard';
-
-    if (player) {
-      player.mute();
-      player.playVideo();
-    }
-
-    console.log('Teruggeschakeld naar openhaard');
-  }
-
-  video.addEventListener('ended', returnToFireplace);
-
-  video.addEventListener('error', () => {
-    if (active) {
-      handleVideoError(video.error);
+      playFireplace();
     }
   });
 
-  // Huidige status ophalen
+  // Videofouten
+  video.addEventListener('error', () => {
+    console.error(
+      'Videofout:',
+      video.error
+    );
+
+    status.textContent =
+      'Videofout – controleer de videobron';
+
+  });
+
+  // Direct starten met de openhaard
+  playFireplace();
+
+  // Bestaande Supabase-status ophalen
   db.from('broadcast_state')
     .select('mode,command_id')
     .eq('id', 1)
     .single()
     .then(({ data, error }) => {
       if (error) {
-        status.textContent = 'Geen verbinding met regie';
-        console.error(error);
+        console.error('Supabase-status ophalen mislukt:', error);
         return;
       }
 
@@ -306,7 +180,7 @@ setTimeout(() => {
       }
     });
 
-  // Live opdrachten ontvangen
+  // Live opdrachten vanuit de telefooncontroller
   db.channel('broadcast-control')
     .on(
       'postgres_changes',
@@ -319,12 +193,14 @@ setTimeout(() => {
       (payload) => {
         const state = payload.new;
 
+        console.log('Nieuwe controlleropdracht:', state);
+
         if (state.mode === 'special') {
           playSpecial(state.command_id);
         }
 
         if (state.mode === 'fireplace') {
-          returnToFireplace();
+          playFireplace();
         }
       }
     )
