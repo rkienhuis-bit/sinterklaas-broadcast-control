@@ -3,6 +3,69 @@
   const cfg = window.APP_CONFIG;
   const status = document.getElementById('status');
   const video = document.getElementById('special-video');
+  
+// TIJDELIJKE NEPKLIK-TEST
+setTimeout(() => {
+  const x = Math.round(window.innerWidth / 2);
+  const y = Math.round(window.innerHeight / 2);
+
+  const target = document.elementFromPoint(x, y) || document.body;
+
+  const testClickHandler = async (event) => {
+    console.log('Fake click isTrusted:', event.isTrusted);
+    console.log(
+      'User activation:',
+      navigator.userActivation?.hasBeenActive
+    );
+
+    document.body.classList.add('special-active');
+
+    video.pause();
+    video.src = cfg.SPECIAL_VIDEO_URL;
+    video.muted = false;
+    video.volume = 1;
+    video.load();
+
+    try {
+      await video.play();
+
+      status.textContent = 'Nepklik-test: MP4 speelt!';
+      console.log('Nepklik-test: afspelen gelukt');
+
+      setTimeout(() => {
+        video.pause();
+        video.currentTime = 0;
+        video.removeAttribute('src');
+        video.load();
+        document.body.classList.remove('special-active');
+        status.textContent = 'Nepklik-test afgerond';
+      }, 2000);
+
+    } catch (error) {
+      console.error('Nepklik-test mislukt:', error.name, error.message);
+
+      status.textContent = 'Nepklik geblokkeerd: ' + error.name;
+
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      document.body.classList.remove('special-active');
+    }
+  };
+
+  target.addEventListener('click', testClickHandler, { once: true });
+
+  const fakeClick = new MouseEvent('click', {
+    bubbles: true,
+    cancelable: true,
+    view: window,
+    clientX: x,
+    clientY: y
+  });
+
+  target.dispatchEvent(fakeClick);
+}, 2500);
+
 
   if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
     status.textContent = 'Supabase-configuratie ontbreekt';
