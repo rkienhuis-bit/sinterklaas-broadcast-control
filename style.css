@@ -36,29 +36,11 @@ body {
   background: #000;
 }
 
-/* YOUTUBE OPENHAARD */
 
-.broadcast #youtube-player {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-  background: #000;
-}
+/* MP4 VIDEOS */
 
-.broadcast #youtube-player iframe {
-  position: absolute;
-  inset: 0;
-  width: 100% !important;
-  height: 100% !important;
-  border: 0;
-}
-
-/* SINTERKLAASVIDEO */
-
-.broadcast #special-video {
-  display: none;
+.broadcast #broadcast-video {
+  display: block;
   position: absolute;
   inset: 0;
   width: 100%;
@@ -68,7 +50,21 @@ body {
   object-fit: cover;
 }
 
-/* TIJDENS SINTERKLAASUITZENDING */
+/* STATUS */
+
+.broadcast .status {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  z-index: 10;
+  padding: 5px 8px;
+  background: #0009;
+  color: #fff9;
+  font-size: 11px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 
 .broadcast.special-active #youtube-player {
   visibility: hidden;
