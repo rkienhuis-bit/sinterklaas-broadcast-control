@@ -1,0 +1,70 @@
+
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Broadcast popup test</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      text-align: center;
+    }
+
+    button {
+      padding: 20px 35px;
+      font-size: 22px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div>
+    <h1>Broadcast starten</h1>
+    <p id="status">Video wordt geopend...</p>
+    <button id="start">OPENHAARD STARTEN</button>
+  </div>
+
+  <script>
+    const fireplaceUrl =
+      "https://www.dropbox.com/scl/fi/d634zzv3494pwo97ifgae/sinterhaard.mp4?rlkey=60h2u6v3s184l8sjlz6vsw7pr&raw=1";
+
+    let videoWindow = null;
+
+    function startBroadcast() {
+      videoWindow = window.open("about:blank", "broadcastVideo");
+
+      if (!videoWindow) {
+        document.getElementById("status").textContent =
+          "Nieuw venster geblokkeerd door de browser.";
+        return;
+      }
+
+      videoWindow.location.href = fireplaceUrl;
+
+      document.getElementById("status").textContent =
+        "Openhaardvenster geopend.";
+      
+      console.log("Videovenster geopend:", videoWindow);
+    }
+
+    document.getElementById("start").addEventListener(
+      "click",
+      startBroadcast
+    );
+
+    // Automatische test na laden
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        document.getElementById("start").click();
+      }, 1500);
+    });
+  </script>
+</body>
+</html>
