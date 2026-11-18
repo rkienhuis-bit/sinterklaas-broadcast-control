@@ -4,49 +4,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IPEX Video Player</title>
-  <style>
-    html, body {
-      margin: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #000;
-    }
-
-    video {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      background: #000;
-    }
-  </style>
+  <title>IPEX Video</title>
 </head>
-<body>
-  <video id="player" autoplay controls playsinline></video>
+<body style="margin:0;background:black">
+  <script>
+    const video =
+      "https://www.dropbox.com/scl/fi/d634zzv3494pwo97ifgae/sinterhaard.mp4?rlkey=60h2u6v3s184l8sjlz6vsw7pr&raw=1";
 
- <script>
-  const player = document.getElementById("player");
-
-  player.src =
-    "https://www.dropbox.com/scl/fi/d634zzv3494pwo97ifgae/sinterhaard.mp4?rlkey=60h2u6v3s184l8sjlz6vsw7pr&raw=1";
-
-  player.muted = true;
-  player.autoplay = true;
-
-  player.addEventListener("canplay", async () => {
-    try {
-      await player.play();
-
-      setTimeout(() => {
-        player.muted = false;
-        player.volume = 1;
-      }, 1000);
-
-    } catch (error) {
-      console.error("Autoplay mislukt:", error);
-    }
-  }, { once: true });
-</script>
+    window.location.replace(video);
+  </script>
 </body>
 </html>
