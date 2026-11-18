@@ -25,15 +25,28 @@
 <body>
   <video id="player" autoplay controls playsinline></video>
 
-  <script>
-    const player = document.getElementById("player");
+ <script>
+  const player = document.getElementById("player");
 
-    player.src =
-      "https://www.dropbox.com/scl/fi/d634zzv3494pwo97ifgae/sinterhaard.mp4?rlkey=60h2u6v3s184l8sjlz6vsw7pr&raw=1";
+  player.src =
+    "https://www.dropbox.com/scl/fi/d634zzv3494pwo97ifgae/sinterhaard.mp4?rlkey=60h2u6v3s184l8sjlz6vsw7pr&raw=1";
 
-    player.play().catch(error => {
-      console.error("Afspelen mislukt:", error);
-    });
-  </script>
+  player.muted = true;
+  player.autoplay = true;
+
+  player.addEventListener("canplay", async () => {
+    try {
+      await player.play();
+
+      setTimeout(() => {
+        player.muted = false;
+        player.volume = 1;
+      }, 1000);
+
+    } catch (error) {
+      console.error("Autoplay mislukt:", error);
+    }
+  }, { once: true });
+</script>
 </body>
 </html>
