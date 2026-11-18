@@ -18,6 +18,8 @@
   let player = null;
   let active = false;
   let lastCommand = null;
+  let pendingCommandId = null;
+  let mediaUnlocked = false;
 
   function showSpecialScreen() {
     document.body.classList.add('special-active');
@@ -27,6 +29,50 @@
     document.body.classList.remove('special-active');
   }
 
+  // Echte toetsenbord- of afstandsbedieningsinvoer
+  function handleActivationKey(event) {
+    if (!event.isTrusted || mediaUnlocked) return;
+
+    // Modifiertoetsen tellen niet als onze activatietoets.
+    if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(event.key)) {
+      return;
+    }
+
+    mediaUnlocked = true;
+
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+
+    console.log('Echte toets ontvangen:', {
+      key: event.key,
+      code: event.code,
+      trusted: event.isTrusted,
+      userActivation: navigator.userActivation?.hasBeenActive
+    });
+
+    // MP4-element voorbereiden binnen de echte toetsinteractie.
+    video.pause();
+    video.src = cfg.SPECIAL_VIDEO_URL;
+    video.muted = false;
+    video.volume = 1;
+    video.load();
+
+    status.textContent =
+      `Toets herkend: ${event.key || event.code} – audio voorbereid`;
+
+    console.log('MP4 voorbereid voor afspelen met geluid');
+
+    // Was er al een START-commando binnengekomen?
+    if (pendingCommandId) {
+      const commandId = pendingCommandId;
+      pendingCommandId = null;
+      playSpecial(commandId);
+    }
+  }
+
+  document.addEventListener('keydown', handleActivationKey, true);
+
   // YouTube API
   window.onYouTubeIframeAPIReady = () => {
     player = new YT.Player('youtube-player', {
@@ -34,7 +80,6 @@
 
       playerVars: {
         autoplay: 1,
-        mute: 1,
         controls: 0,
         disablekb: 1,
         fs: 0,
@@ -52,7 +97,6 @@
             event.target.mute();
             event.target.setVolume(100);
             event.target.playVideo();
-
             status.textContent = 'Openhaard';
           } else {
             event.target.pauseVideo();
@@ -106,8 +150,17 @@
   async function playSpecial(commandId) {
     if (active || lastCommand === commandId) return;
 
+    // Wachten op echte toetsinvoer als Chrome nog niet geactiveerd is.
+    if (!mediaUnlocked) {
+      pendingCommandId = commandId;
+      status.textContent = 'Wacht op toetsinvoer voor audio';
+      console.log('START ontvangen; wacht op echte toetsinvoer');
+      return;
+    }
+
     active = true;
     lastCommand = commandId;
+    pendingCommandId = null;
 
     showSpecialScreen();
 
@@ -117,20 +170,33 @@
 
     try {
       video.pause();
-      video.src = cfg.SPECIAL_VIDEO_URL;
-      video.load();
+
+      const specialUrl = new URL(
+        cfg.SPECIAL_VIDEO_URL,
+        window.location.href
+      ).href;
+
+      if (video.src !== specialUrl) {
+        video.src = cfg.SPECIAL_VIDEO_URL;
+        video.load();
+      }
+
+      video.muted = false;
+      video.volume = 1;
 
       status.textContent = 'Sinterklaasuitzending';
 
       await video.play();
 
-      console.log('Sinterklaasvideo gestart');
+      console.log('Sinterklaasvideo gestart met geluid');
     } catch (error) {
       handleVideoError(error);
     }
   }
 
   function returnToFireplace() {
+    pendingCommandId = null;
+
     if (!active) return;
 
     active = false;
@@ -160,6 +226,7 @@
     }
   });
 
+  // Huidige status ophalen
   db.from('broadcast_state')
     .select('mode,command_id')
     .eq('id', 1)
@@ -176,6 +243,7 @@
       }
     });
 
+  // Live opdrachten ontvangen
   db.channel('broadcast-control')
     .on(
       'postgres_changes',
