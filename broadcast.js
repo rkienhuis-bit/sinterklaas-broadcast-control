@@ -6,7 +6,10 @@
  let player=null, active=false, lastCommand=null;
  window.onYouTubeIframeAPIReady=()=>{};
  const tag=document.createElement('script'); tag.src='https://www.youtube.com/iframe_api'; document.head.appendChild(tag);
- window.onYouTubeIframeAPIReady=()=>{ player=new YT.Player('youtube-player',{videoId:ytId, playerVars:{autoplay:1,controls:0,disablekb:1,fs:0,iv_load_policy:3,modestbranding:1,playsinline:1,rel:0}, events:{onReady:()=>{status.textContent='Openhaard';},onError:()=>{status.textContent='YouTube kon niet laden';}}}); };
+ window.onYouTubeIframeAPIReady=()=>{ player=new YT.Player('youtube-player',{videoId:ytId, playerVars:{autoplay:1,controls:0,disablekb:1,fs:0,iv_load_policy:3,modestbranding:1,playsinline:1,rel:0}, events:{onReady: (event) => {
+  status.textContent = 'Openhaard';
+  event.target.playVideo();
+},onError:()=>{status.textContent='YouTube kon niet laden';}}}); };
  async function playSpecial(commandId){
    if(active || lastCommand===commandId) return;
    active=true; lastCommand=commandId; video.style.display='block';
