@@ -6,10 +6,8 @@ module.exports = async (req, res) => {
 
   const { pin, mode } = req.body || {};
 
-  if (
-    !process.env.CONTROLLER_PIN ||
-    pin !== process.env.CONTROLLER_PIN
-  ) {
+  if (!process.env.CONTROLLER_PIN ||
+      pin !== process.env.CONTROLLER_PIN) {
     return res.status(401).json({ error: 'Onjuiste regiecode' });
   }
 
@@ -21,14 +19,20 @@ module.exports = async (req, res) => {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!base || !key) {
-    return res.status(500).json({ error: 'Serverconfiguratie ontbreekt' });
+    return res.status(500).json({
+      error: 'Serverconfiguratie ontbreekt'
+    });
   }
 
   const update = {
-    mode,
     command_id: `${mode}-${Date.now()}`,
     updated_at: new Date().toISOString()
   };
+
+  // Alleen bij video-opdrachten de videomodus aanpassen.
+  if (mode !== 'audio') {
+    update.mode = mode;
+  }
 
   const response = await fetch(
     `${base}/rest/v1/broadcast_state?id=eq.1`,
@@ -45,9 +49,12 @@ module.exports = async (req, res) => {
   );
 
   if (!response.ok) {
-    console.error(await response.text());
+    const error = await response.text();
+    console.error('Supabase update error:', error);
+
     return res.status(502).json({
-      error: 'Supabase kon de opdracht niet opslaan'
+      error: 'Supabase kon de opdracht niet opslaan',
+      details: error
     });
   }
 
