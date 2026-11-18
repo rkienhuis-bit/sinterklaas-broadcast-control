@@ -34,6 +34,7 @@
 
       playerVars: {
         autoplay: 1,
+        mute: 1,
         controls: 0,
         disablekb: 1,
         fs: 0,
@@ -48,7 +49,10 @@
           console.log('YouTube player gereed');
 
           if (!active) {
+            event.target.mute();
+            event.target.setVolume(100);
             event.target.playVideo();
+
             status.textContent = 'Openhaard';
           } else {
             event.target.pauseVideo();
@@ -57,7 +61,7 @@
 
         onStateChange: (event) => {
           if (event.data === YT.PlayerState.PLAYING && !active) {
-            console.log('Openhaard speelt');
+            console.log('Openhaard speelt (gedempt)');
             status.textContent = 'Openhaard';
           }
 
@@ -78,7 +82,6 @@
   tag.src = 'https://www.youtube.com/iframe_api';
   document.head.appendChild(tag);
 
-  // Foutafhandeling MP4
   function handleVideoError(error) {
     if (!active) return;
 
@@ -100,7 +103,6 @@
     status.textContent = 'MP4 kon niet starten - autoplay of videofout';
   }
 
-  // Sinterklaasvideo starten
   async function playSpecial(commandId) {
     if (active || lastCommand === commandId) return;
 
@@ -128,7 +130,6 @@
     }
   }
 
-  // Terug naar openhaard
   function returnToFireplace() {
     if (!active) return;
 
@@ -144,6 +145,7 @@
     status.textContent = 'Openhaard';
 
     if (player) {
+      player.mute();
       player.playVideo();
     }
 
@@ -158,7 +160,6 @@
     }
   });
 
-  // Huidige uitzending ophalen
   db.from('broadcast_state')
     .select('mode,command_id')
     .eq('id', 1)
@@ -175,7 +176,6 @@
       }
     });
 
-  // Luisteren naar opdrachten
   db.channel('broadcast-control')
     .on(
       'postgres_changes',
