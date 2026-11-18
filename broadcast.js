@@ -1,3 +1,4 @@
+
 (() => {
   const cfg = window.APP_CONFIG;
   const status = document.getElementById('status');
@@ -18,7 +19,6 @@
   let active = false;
   let lastCommand = null;
 
-  // Schakelen tussen openhaard en Sinterklaasvideo
   function showSpecialScreen() {
     document.body.classList.add('special-active');
   }
@@ -27,14 +27,13 @@
     document.body.classList.remove('special-active');
   }
 
-  // YouTube API laden
+  // YouTube API
   window.onYouTubeIframeAPIReady = () => {
     player = new YT.Player('youtube-player', {
       videoId: cfg.YOUTUBE_VIDEO_ID,
 
       playerVars: {
         autoplay: 1,
-        mute: 1,
         controls: 0,
         disablekb: 1,
         fs: 0,
@@ -48,8 +47,6 @@
         onReady: (event) => {
           console.log('YouTube player gereed');
 
-          event.target.mute();
-
           if (!active) {
             event.target.playVideo();
             status.textContent = 'Openhaard';
@@ -60,7 +57,7 @@
 
         onStateChange: (event) => {
           if (event.data === YT.PlayerState.PLAYING && !active) {
-            console.log('YouTube speelt');
+            console.log('Openhaard speelt');
             status.textContent = 'Openhaard';
           }
 
@@ -81,7 +78,7 @@
   tag.src = 'https://www.youtube.com/iframe_api';
   document.head.appendChild(tag);
 
-  // Foutafhandeling Sinterklaasvideo
+  // Foutafhandeling MP4
   function handleVideoError(error) {
     if (!active) return;
 
@@ -100,7 +97,7 @@
       player.playVideo();
     }
 
-    status.textContent = 'Video kon niet starten';
+    status.textContent = 'MP4 kon niet starten - autoplay of videofout';
   }
 
   // Sinterklaasvideo starten
@@ -110,10 +107,8 @@
     active = true;
     lastCommand = commandId;
 
-    // Eerst YouTube volledig verbergen
     showSpecialScreen();
 
-    // YouTube pauzeren
     if (player) {
       player.pauseVideo();
     }
@@ -122,7 +117,6 @@
       video.pause();
       video.src = cfg.SPECIAL_VIDEO_URL;
       video.load();
-      video.currentTime = 0;
 
       status.textContent = 'Sinterklaasuitzending';
 
@@ -145,7 +139,6 @@
     video.removeAttribute('src');
     video.load();
 
-    // YouTube weer zichtbaar maken
     showFireplaceScreen();
 
     status.textContent = 'Openhaard';
@@ -157,7 +150,6 @@
     console.log('Teruggeschakeld naar openhaard');
   }
 
-  // Automatisch terugschakelen na afloop
   video.addEventListener('ended', returnToFireplace);
 
   video.addEventListener('error', () => {
@@ -183,7 +175,7 @@
       }
     });
 
-  // Luisteren naar opdrachten vanaf controller
+  // Luisteren naar opdrachten
   db.channel('broadcast-control')
     .on(
       'postgres_changes',
