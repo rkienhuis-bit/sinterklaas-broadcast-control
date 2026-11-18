@@ -5,21 +5,39 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>IPEX Broadcast</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: black;
+      overflow: hidden;
+    }
+  </style>
 </head>
-<body style="margin:0;background:#000;color:white;font-family:Arial">
+<body>
+  <video
+    id="player"
+    autoplay
+    muted
+    playsinline
+    style="width:100%;height:100%;object-fit:cover"
+  ></video>
 
   <script>
-    const video =
+    const video = document.getElementById("player");
+
+    video.src =
       "https://www.dropbox.com/scl/fi/d634zzv3494pwo97ifgae/sinterhaard.mp4?rlkey=60h2u6v3s184l8sjlz6vsw7pr&raw=1";
 
-    setTimeout(() => {
-      window.location.replace(video);
-    }, 1500);
+    video.addEventListener("canplay", async () => {
+      video.muted = false;
+      try {
+        await video.play();
+      } catch (error) {
+        console.log(error);
+      }
+    }, { once: true });
   </script>
-
-  <h2 style="text-align:center;padding-top:40px">
-    Sinterklaasuitzending starten...
-  </h2>
-
 </body>
 </html>
