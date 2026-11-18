@@ -82,22 +82,17 @@
     playVideo('special', cfg.SPECIAL_VIDEO_URL, false);
   }
 
-  async function activateAudio(commandId) {
-    if (lastAudioCommand === commandId) return;
-    lastAudioCommand = commandId;
+function activateAudio(commandId) {
+  if (lastAudioCommand === commandId) return;
+  lastAudioCommand = commandId;
 
-    console.log('Audio-opdracht ontvangen');
+  console.log('Audio-opdracht ontvangen');
 
-    video.muted = false;
-    video.volume = 1;
+  video.muted = false;
+  video.volume = 1;
 
-    try {
-      await video.play();
-      console.log('Audio geactiveerd');
-    } catch (error) {
-      console.warn('Browser blokkeert audio op afstand:', error);
-    }
-  }
+  console.log('Mute uitgeschakeld. Video niet opnieuw gestart.');
+}
 
   video.addEventListener('ended', () => {
     if (currentMode === 'special') {
