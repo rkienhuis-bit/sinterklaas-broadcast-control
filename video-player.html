@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IPEX Broadcast Player</title>
+  <title>Broadcast Player</title>
   <style>
     html, body {
       margin: 0;
@@ -12,19 +12,23 @@
       height: 100%;
       background: black;
     }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: 0;
-    }
   </style>
 </head>
 <body>
+  <video id="player" autoplay controls playsinline
+    style="width:100%;height:100%;object-fit:contain">
+  </video>
+
   <script>
-    const FIREPLACE =
+    const player = document.getElementById("player");
+
+    player.src =
       "https://www.dropbox.com/scl/fi/d634zzv3494pwo97ifgae/sinterhaard.mp4?rlkey=60h2u6v3s184l8sjlz6vsw7pr&raw=1";
 
-    window.location.replace(FIREPLACE);
+    player.addEventListener("canplay", () => {
+      player.play();
+      player.requestFullscreen?.().catch(() => {});
+    }, { once: true });
   </script>
 </body>
 </html>
