@@ -1,12 +1,11 @@
-
 (() => {
   const cfg = window.APP_CONFIG;
   const status = document.getElementById('status');
   const video = document.getElementById('special-video');
-  const ytId = cfg.YOUTUBE_VIDEO_ID;
 
   if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
     status.textContent = 'Supabase-configuratie ontbreekt';
+    console.error('Supabase-configuratie ontbreekt');
     return;
   }
 
@@ -19,10 +18,19 @@
   let active = false;
   let lastCommand = null;
 
+  // Schakelen tussen openhaard en Sinterklaasvideo
+  function showSpecialScreen() {
+    document.body.classList.add('special-active');
+  }
+
+  function showFireplaceScreen() {
+    document.body.classList.remove('special-active');
+  }
+
   // YouTube API laden
   window.onYouTubeIframeAPIReady = () => {
     player = new YT.Player('youtube-player', {
-      videoId: ytId,
+      videoId: cfg.YOUTUBE_VIDEO_ID,
 
       playerVars: {
         autoplay: 1,
@@ -40,15 +48,18 @@
         onReady: (event) => {
           console.log('YouTube player gereed');
 
-          // Tijdelijke autoplay-test zonder geluid
           event.target.mute();
-          event.target.playVideo();
 
-          status.textContent = 'Openhaard - autoplay test';
+          if (!active) {
+            event.target.playVideo();
+            status.textContent = 'Openhaard';
+          } else {
+            event.target.pauseVideo();
+          }
         },
 
         onStateChange: (event) => {
-          if (event.data === YT.PlayerState.PLAYING) {
+          if (event.data === YT.PlayerState.PLAYING && !active) {
             console.log('YouTube speelt');
             status.textContent = 'Openhaard';
           }
@@ -70,6 +81,28 @@
   tag.src = 'https://www.youtube.com/iframe_api';
   document.head.appendChild(tag);
 
+  // Foutafhandeling Sinterklaasvideo
+  function handleVideoError(error) {
+    if (!active) return;
+
+    console.error('MP4 playback failed:', error);
+
+    active = false;
+    lastCommand = null;
+
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+
+    showFireplaceScreen();
+
+    if (player) {
+      player.playVideo();
+    }
+
+    status.textContent = 'Video kon niet starten';
+  }
+
   // Sinterklaasvideo starten
   async function playSpecial(commandId) {
     if (active || lastCommand === commandId) return;
@@ -77,14 +110,18 @@
     active = true;
     lastCommand = commandId;
 
-    video.style.display = 'block';
+    // Eerst YouTube volledig verbergen
+    showSpecialScreen();
+
+    // YouTube pauzeren
+    if (player) {
+      player.pauseVideo();
+    }
 
     try {
-      if (player) {
-        player.pauseVideo();
-      }
-
+      video.pause();
       video.src = cfg.SPECIAL_VIDEO_URL;
+      video.load();
       video.currentTime = 0;
 
       status.textContent = 'Sinterklaasuitzending';
@@ -92,18 +129,8 @@
       await video.play();
 
       console.log('Sinterklaasvideo gestart');
-
     } catch (error) {
-      console.error('MP4 playback failed:', error);
-
-      active = false;
-      video.style.display = 'none';
-
-      if (player) {
-        player.playVideo();
-      }
-
-      status.textContent = 'Video kon niet starten';
+      handleVideoError(error);
     }
   }
 
@@ -112,11 +139,14 @@
     if (!active) return;
 
     active = false;
+    lastCommand = null;
 
     video.pause();
-    video.style.display = 'none';
     video.removeAttribute('src');
     video.load();
+
+    // YouTube weer zichtbaar maken
+    showFireplaceScreen();
 
     status.textContent = 'Openhaard';
 
@@ -127,19 +157,12 @@
     console.log('Teruggeschakeld naar openhaard');
   }
 
-  // Automatisch terugschakelen na MP4
+  // Automatisch terugschakelen na afloop
   video.addEventListener('ended', returnToFireplace);
 
   video.addEventListener('error', () => {
     if (active) {
-      active = false;
-      video.style.display = 'none';
-
-      if (player) {
-        player.playVideo();
-      }
-
-      status.textContent = 'Fout bij laden MP4';
+      handleVideoError(video.error);
     }
   });
 
