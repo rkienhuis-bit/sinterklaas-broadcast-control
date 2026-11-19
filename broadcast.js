@@ -5,6 +5,8 @@
   const image = document.getElementById('broadcast-image');
   const video = document.getElementById('broadcast-video');
 
+  const FADE_DURATION = 1000;
+
   if (!cfg?.SUPABASE_URL || !cfg?.SUPABASE_ANON_KEY) {
     console.error('Supabase-configuratie ontbreekt.');
     return;
@@ -18,40 +20,95 @@
   let mediaItems = [];
   let currentFile = null;
   let playbackToken = 0;
+  let activeElement = null;
 
   function findMedia(file) {
     return mediaItems.find(item => item.file === file);
   }
 
-  function showImage(item) {
-    const token = ++playbackToken;
+  function waitForTransition(element) {
+    return new Promise(resolve => {
+      let finished = false;
 
-    video.pause();
-    video.removeAttribute('src');
-    video.load();
-    video.classList.remove('active');
+      const done = () => {
+        if (finished) return;
+        finished = true;
+        element.removeEventListener('transitionend', onEnd);
+        resolve();
+      };
 
-    image.classList.remove('active');
+      const onEnd = event => {
+        if (event.propertyName === 'opacity') done();
+      };
 
-    image.onload = () => {
-      if (token !== playbackToken) return;
-      image.classList.add('active');
-      console.log('Afbeelding actief:', item.name);
-    };
-
-    image.onerror = () => {
-      if (token !== playbackToken) return;
-      console.error('Afbeelding kon niet worden geladen:', item.file);
-    };
-
-    image.src = `/images/${encodeURIComponent(item.file)}`;
+      element.addEventListener('transitionend', onEnd);
+      setTimeout(done, FADE_DURATION + 100);
+    });
   }
 
-  async function showVideo(item) {
-    const token = ++playbackToken;
+  async function fadeTo(element, token) {
+    if (token !== playbackToken) return;
 
-    image.classList.remove('active');
+    element.classList.remove('fading');
+    element.classList.add('active');
 
+    // Laat de browser de beginstatus verwerken.
+    await new Promise(requestAnimationFrame);
+
+    if (token !== playbackToken) return;
+
+    element.classList.add('active');
+    element.classList.remove('fading');
+
+    if (activeElement && activeElement !== element) {
+      activeElement.classList.remove('active');
+      activeElement.classList.add('fading');
+    }
+
+    const previousElement = activeElement;
+    activeElement = element;
+
+    const promises = [waitForTransition(element)];
+
+    if (previousElement && previousElement !== element) {
+      promises.push(waitForTransition(previousElement));
+    }
+
+    await Promise.all(promises);
+
+    if (token !== playbackToken) return;
+
+    if (previousElement && previousElement !== element) {
+      previousElement.classList.remove('active', 'fading');
+
+      if (previousElement === video) {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+      }
+    }
+
+    element.classList.add('active');
+    element.classList.remove('fading');
+  }
+
+  function prepareImage(item, token) {
+    return new Promise((resolve, reject) => {
+      image.onload = () => {
+        if (token !== playbackToken) return resolve(false);
+        resolve(true);
+      };
+
+      image.onerror = () => {
+        if (token !== playbackToken) return resolve(false);
+        reject(new Error('Afbeelding kon niet worden geladen: ' + item.file));
+      };
+
+      image.src = `/images/${encodeURIComponent(item.file)}`;
+    });
+  }
+
+  async function prepareVideo(item, token) {
     video.pause();
     video.removeAttribute('src');
 
@@ -61,22 +118,41 @@
     video.playsInline = true;
 
     video.src = `/images/${encodeURIComponent(item.file)}`;
-    video.classList.add('active');
     video.load();
 
-    try {
-      await video.play();
+    await new Promise((resolve, reject) => {
+      const onReady = () => {
+        cleanup();
+        resolve();
+      };
 
-      if (token !== playbackToken) return;
+      const onError = () => {
+        cleanup();
+        reject(new Error('Video kon niet worden geladen: ' + item.file));
+      };
 
-      console.log('Video actief:', item.name);
-    } catch (error) {
-      if (token !== playbackToken) return;
-      console.error('Video afspelen mislukt:', error);
-    }
+      const cleanup = () => {
+        video.removeEventListener('canplay', onReady);
+        video.removeEventListener('error', onError);
+      };
+
+      video.addEventListener('canplay', onReady, { once: true });
+      video.addEventListener('error', onError, { once: true });
+
+      if (video.readyState >= 3) {
+        cleanup();
+        resolve();
+      }
+    });
+
+    if (token !== playbackToken) return false;
+
+    await video.play();
+
+    return token === playbackToken;
   }
 
-  function showMedia(file, updatedAt) {
+  async function showMedia(file, updatedAt) {
     const item = findMedia(file);
 
     if (!item) {
@@ -87,14 +163,32 @@
     const commandKey = `${file}|${updatedAt || ''}`;
 
     if (commandKey === currentFile) return;
+
     currentFile = commandKey;
+    const token = ++playbackToken;
 
-    console.log('Nieuwe uitzending:', item.name);
+    console.log('Nieuwe uitzending voorbereiden:', item.name);
 
-    if (item.type === 'image') {
-      showImage(item);
-    } else if (item.type === 'video') {
-      showVideo(item);
+    try {
+      if (item.type === 'image') {
+        const ready = await prepareImage(item, token);
+        if (!ready || token !== playbackToken) return;
+
+        await fadeTo(image, token);
+
+      } else if (item.type === 'video') {
+        const ready = await prepareVideo(item, token);
+        if (!ready || token !== playbackToken) return;
+
+        await fadeTo(video, token);
+      }
+
+      console.log('Crossfade voltooid:', item.name);
+
+    } catch (error) {
+      if (token !== playbackToken) return;
+
+      console.error('Mediawissel mislukt:', error);
     }
   }
 
@@ -150,11 +244,10 @@
     try {
       await loadMedia();
 
-      // Toon direct de standaardafbeelding.
       const defaultImage = findMedia('Padel_V2.jpg');
 
       if (defaultImage) {
-        showMedia(defaultImage.file, 'default');
+        await showMedia(defaultImage.file, 'default');
       }
 
       db.channel('broadcast-control')
