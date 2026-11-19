@@ -11,7 +11,8 @@
       box-sizing: border-box;
     }
 
-    html, body {
+    html,
+    body {
       margin: 0;
       width: 100%;
       height: 100%;
@@ -20,30 +21,29 @@
       font-family: Arial, sans-serif;
     }
 
-  #broadcast-image,
-#broadcast-video {
-  display: none;
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #000;
-  opacity: 0;
-  transition: opacity 1000ms ease-in-out;
-}
+    .media-layer {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      opacity: 0;
+      transition: opacity 1000ms ease-in-out;
+      pointer-events: none;
+    }
 
-#broadcast-image.active,
-#broadcast-video.active {
-  display: block;
-  opacity: 1;
-}
+    .media-layer.active {
+      opacity: 1;
+    }
 
-#broadcast-image.fading,
-#broadcast-video.fading {
-  display: block;
-  opacity: 0;
-}
+    .media-layer img,
+    .media-layer video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
 
     #status {
       display: none;
@@ -53,15 +53,15 @@
 
 <body>
 
-  <img id="broadcast-image" alt="IPEX Broadcast">
+  <div id="layer-1" class="media-layer active">
+    <img alt="IPEX Broadcast">
+    <video muted playsinline loop></video>
+  </div>
 
-  <video
-    id="broadcast-video"
-    autoplay
-    muted
-    playsinline
-    loop
-  ></video>
+  <div id="layer-2" class="media-layer">
+    <img alt="IPEX Broadcast">
+    <video muted playsinline loop></video>
+  </div>
 
   <div id="status"></div>
 
