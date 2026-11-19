@@ -2,11 +2,6 @@
 (() => {
   const cfg = window.APP_CONFIG;
 
-  const image = document.getElementById('broadcast-image');
-  const video = document.getElementById('broadcast-video');
-
-  const FADE_DURATION = 1000;
-
   if (!cfg?.SUPABASE_URL || !cfg?.SUPABASE_ANON_KEY) {
     console.error('Supabase-configuratie ontbreekt.');
     return;
@@ -17,139 +12,105 @@
     cfg.SUPABASE_ANON_KEY
   );
 
+  const layers = [
+    document.getElementById('layer-1'),
+    document.getElementById('layer-2')
+  ];
+
+  const FADE_DURATION = 1000;
+
   let mediaItems = [];
-  let currentFile = null;
+  let activeIndex = 0;
+  let currentCommand = null;
   let playbackToken = 0;
-  let activeElement = null;
+  let switching = false;
+  let pendingCommand = null;
 
   function findMedia(file) {
     return mediaItems.find(item => item.file === file);
   }
 
-  function waitForTransition(element) {
-    return new Promise(resolve => {
-      let finished = false;
-
-      const done = () => {
-        if (finished) return;
-        finished = true;
-        element.removeEventListener('transitionend', onEnd);
-        resolve();
-      };
-
-      const onEnd = event => {
-        if (event.propertyName === 'opacity') done();
-      };
-
-      element.addEventListener('transitionend', onEnd);
-      setTimeout(done, FADE_DURATION + 100);
-    });
+  function getElements(layer) {
+    return {
+      image: layer.querySelector('img'),
+      video: layer.querySelector('video')
+    };
   }
 
-  async function fadeTo(element, token) {
-    if (token !== playbackToken) return;
+  function hideMedia(layer) {
+    const { image, video } = getElements(layer);
 
-    element.classList.remove('fading');
-    element.classList.add('active');
+    image.removeAttribute('src');
+    image.style.display = 'none';
 
-    // Laat de browser de beginstatus verwerken.
-    await new Promise(requestAnimationFrame);
-
-    if (token !== playbackToken) return;
-
-    element.classList.add('active');
-    element.classList.remove('fading');
-
-    if (activeElement && activeElement !== element) {
-      activeElement.classList.remove('active');
-      activeElement.classList.add('fading');
-    }
-
-    const previousElement = activeElement;
-    activeElement = element;
-
-    const promises = [waitForTransition(element)];
-
-    if (previousElement && previousElement !== element) {
-      promises.push(waitForTransition(previousElement));
-    }
-
-    await Promise.all(promises);
-
-    if (token !== playbackToken) return;
-
-    if (previousElement && previousElement !== element) {
-      previousElement.classList.remove('active', 'fading');
-
-      if (previousElement === video) {
-        video.pause();
-        video.removeAttribute('src');
-        video.load();
-      }
-    }
-
-    element.classList.add('active');
-    element.classList.remove('fading');
-  }
-
-  function prepareImage(item, token) {
-    return new Promise((resolve, reject) => {
-      image.onload = () => {
-        if (token !== playbackToken) return resolve(false);
-        resolve(true);
-      };
-
-      image.onerror = () => {
-        if (token !== playbackToken) return resolve(false);
-        reject(new Error('Afbeelding kon niet worden geladen: ' + item.file));
-      };
-
-      image.src = `/images/${encodeURIComponent(item.file)}`;
-    });
-  }
-
-  async function prepareVideo(item, token) {
     video.pause();
     video.removeAttribute('src');
-
-    video.loop = true;
-    video.muted = true;
-    video.volume = 0;
-    video.playsInline = true;
-
-    video.src = `/images/${encodeURIComponent(item.file)}`;
     video.load();
+    video.style.display = 'none';
+  }
 
-    await new Promise((resolve, reject) => {
-      const onReady = () => {
-        cleanup();
-        resolve();
-      };
+  function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
-      const onError = () => {
-        cleanup();
-        reject(new Error('Video kon niet worden geladen: ' + item.file));
-      };
+  async function prepareMedia(layer, item, token) {
+    const { image, video } = getElements(layer);
 
-      const cleanup = () => {
-        video.removeEventListener('canplay', onReady);
-        video.removeEventListener('error', onError);
-      };
+    hideMedia(layer);
 
-      video.addEventListener('canplay', onReady, { once: true });
-      video.addEventListener('error', onError, { once: true });
+    if (item.type === 'image') {
+      image.style.display = 'block';
 
-      if (video.readyState >= 3) {
-        cleanup();
-        resolve();
-      }
-    });
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = () => reject(
+          new Error('Afbeelding kon niet worden geladen: ' + item.file)
+        );
 
-    if (token !== playbackToken) return false;
+        image.src = `/images/${encodeURIComponent(item.file)}`;
+      });
 
-    await video.play();
+    } else {
+      video.style.display = 'block';
+      video.muted = true;
+      video.volume = 0;
+      video.loop = true;
+      video.playsInline = true;
 
-    return token === playbackToken;
+      video.src = `/images/${encodeURIComponent(item.file)}`;
+      video.load();
+
+      await new Promise((resolve, reject) => {
+        const ready = () => {
+          cleanup();
+          resolve();
+        };
+
+        const failed = () => {
+          cleanup();
+          reject(new Error('Video kon niet worden geladen: ' + item.file));
+        };
+
+        const cleanup = () => {
+          video.removeEventListener('canplay', ready);
+          video.removeEventListener('error', failed);
+        };
+
+        video.addEventListener('canplay', ready, { once: true });
+        video.addEventListener('error', failed, { once: true });
+
+        if (video.readyState >= 3) {
+          cleanup();
+          resolve();
+        }
+      });
+
+      if (token !== playbackToken) return;
+
+      await video.play();
+    }
+
+    if (token !== playbackToken) return;
   }
 
   async function showMedia(file, updatedAt) {
@@ -160,35 +121,63 @@
       return;
     }
 
-    const commandKey = `${file}|${updatedAt || ''}`;
+    const command = `${file}|${updatedAt || ''}`;
 
-    if (commandKey === currentFile) return;
+    if (command === currentCommand) return;
 
-    currentFile = commandKey;
+    if (switching) {
+      pendingCommand = { file, updatedAt };
+      return;
+    }
+
+    switching = true;
     const token = ++playbackToken;
 
-    console.log('Nieuwe uitzending voorbereiden:', item.name);
-
     try {
-      if (item.type === 'image') {
-        const ready = await prepareImage(item, token);
-        if (!ready || token !== playbackToken) return;
+      const nextIndex = 1 - activeIndex;
+      const oldLayer = layers[activeIndex];
+      const newLayer = layers[nextIndex];
 
-        await fadeTo(image, token);
+      console.log('Nieuwe content voorbereiden:', item.name);
 
-      } else if (item.type === 'video') {
-        const ready = await prepareVideo(item, token);
-        if (!ready || token !== playbackToken) return;
+      await prepareMedia(newLayer, item, token);
 
-        await fadeTo(video, token);
-      }
+      if (token !== playbackToken) return;
+
+      // Eerst de nieuwe laag activeren.
+      newLayer.classList.add('active');
+
+      // Browser de startpositie laten verwerken.
+      await new Promise(requestAnimationFrame);
+
+      if (token !== playbackToken) return;
+
+      // Oude laag geleidelijk laten verdwijnen.
+      oldLayer.classList.remove('active');
+
+      await wait(FADE_DURATION);
+
+      if (token !== playbackToken) return;
+
+      hideMedia(oldLayer);
+
+      activeIndex = nextIndex;
+      currentCommand = command;
 
       console.log('Crossfade voltooid:', item.name);
 
     } catch (error) {
-      if (token !== playbackToken) return;
+      if (token === playbackToken) {
+        console.error('Mediawissel mislukt:', error);
+      }
+    } finally {
+      switching = false;
 
-      console.error('Mediawissel mislukt:', error);
+      if (pendingCommand) {
+        const next = pendingCommand;
+        pendingCommand = null;
+        showMedia(next.file, next.updatedAt);
+      }
     }
   }
 
@@ -244,11 +233,13 @@
     try {
       await loadMedia();
 
-      const defaultImage = findMedia('Padel_V2.jpg');
+      // Beide lagen schoon beginnen.
+      layers.forEach((layer, index) => {
+        layer.classList.toggle('active', index === 0);
+        hideMedia(layer);
+      });
 
-      if (defaultImage) {
-        await showMedia(defaultImage.file, 'default');
-      }
+      await showMedia('Padel_V2.jpg', 'default');
 
       db.channel('broadcast-control')
         .on(
@@ -260,8 +251,10 @@
             filter: 'id=eq.1'
           },
           payload => {
-            const state = payload.new;
-            showMedia(state.command_id, state.updated_at);
+            showMedia(
+              payload.new.command_id,
+              payload.new.updated_at
+            );
           }
         )
         .subscribe(status => {
