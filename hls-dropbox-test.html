@@ -1,0 +1,77 @@
+
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dropbox HLS Test</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: black;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+  <video id="video" autoplay muted controls playsinline></video>
+
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script>
+    const video = document.getElementById('video');
+
+    const playlist = URL.createObjectURL(new Blob([
+`#EXTM3U
+#EXT-X-VERSION:4
+#EXT-X-TARGETDURATION:4
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-PLAYLIST-TYPE:VOD
+#EXTINF:4.000000,
+#EXT-X-BYTERANGE:739780@0
+https://www.dropbox.com/scl/fi/bm5roqgc0k00ryrh9bojs/fireplace.ts?rlkey=0s4m8pwwsa1ylyhoib39jl4m9&st=c8md6uvl&raw=1
+#EXTINF:4.000000,
+#EXT-X-BYTERANGE:689584@739780
+https://www.dropbox.com/scl/fi/bm5roqgc0k00ryrh9bojs/fireplace.ts?rlkey=0s4m8pwwsa1ylyhoib39jl4m9&st=c8md6uvl&raw=1
+#EXTINF:4.000000,
+#EXT-X-BYTERANGE:533544@1429364
+https://www.dropbox.com/scl/fi/bm5roqgc0k00ryrh9bojs/fireplace.ts?rlkey=0s4m8pwwsa1ylyhoib39jl4m9&st=c8md6uvl&raw=1
+#EXTINF:4.000000,
+#EXT-X-BYTERANGE:529408@1962908
+https://www.dropbox.com/scl/fi/bm5roqgc0k00ryrh9bojs/fireplace.ts?rlkey=0s4m8pwwsa1ylyhoib39jl4m9&st=c8md6uvl&raw=1
+#EXTINF:4.000000,
+#EXT-X-BYTERANGE:599156@2492316
+https://www.dropbox.com/scl/fi/bm5roqgc0k00ryrh9bojs/fireplace.ts?rlkey=0s4m8pwwsa1ylyhoib39jl4m9&st=c8md6uvl&raw=1
+#EXTINF:4.000000,
+#EXT-X-BYTERANGE:505720@3091472
+https://www.dropbox.com/scl/fi/bm5roqgc0k00ryrh9bojs/fireplace.ts?rlkey=0s4m8pwwsa1ylyhoib39jl4m9&st=c8md6uvl&raw=1
+#EXTINF:4.000000,
+#EXT-X-BYTERANGE:516436@3597192
+https://www.dropbox.com/scl/fi/bm5roqgc0k00ryrh9bojs/fireplace.ts?rlkey=0s4m8pwwsa1ylyhoib39jl4m9&st=c8md6uvl&raw=1
+#EXTINF:4.000000,
+#EXT-X-BYTERANGE:607992@4113628
+https://www.dropbox.com/scl/fi/bm5roqgc0k00ryrh9bojs/fireplace.ts?rlkey=0s4m8pwwsa1ylyhoib39jl4m9&st=c8md6uvl&raw=1
+#EXTINF:4.000000,
+#EXT-X-BYTERANGE:558924@4721620
+https://www.dropbox.com/scl/fi/bm5roqgc0k00ryrh9bojs/fireplace.ts?rlkey=0s4m8pwwsa1ylyhoib39jl4m9&st=c8md6uvl&raw=1
+#EXTINF:4.000000,
+#EXT-X-BYTERANGE:537868@5280544
+https://www.dropbox.com/scl/fi/bm5roqgc0k00ryrh9bojs/fireplace.ts?rlkey=0s4m8pwwsa1ylyhoib39jl4m9&st=c8md6uvl&raw=1
+#EXT-X-ENDLIST`
+    ], { type: 'application/vnd.apple.mpegurl' }));
+
+    if (Hls.isSupported()) {
+      const hls = new Hls();
+      hls.loadSource(playlist);
+      hls.attachMedia(video);
+    } else {
+      video.src = playlist;
+    }
+  </script>
+</body>
+</html>
