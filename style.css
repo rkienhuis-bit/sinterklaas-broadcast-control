@@ -1,3 +1,4 @@
+
 /* ALGEMEEN */
 
 * {
@@ -9,7 +10,7 @@ body {
   margin: 0;
   padding: 0;
   width: 100%;
-  height: 100%;
+  min-height: 100%;
   background: #000;
   color: #fff;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
@@ -17,91 +18,42 @@ body {
 
 /* BROADCAST SCHERM */
 
-.broadcast {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100vh;
-  height: 100dvh;
+body:not(.controller) {
   overflow: hidden;
-  background: #000;
 }
 
-.broadcast #stage {
+#broadcast-image,
+#broadcast-video {
+  display: none;
   position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  object-fit: contain;
   background: #000;
 }
 
-
-/* MP4 VIDEOS */
-
-.broadcast #broadcast-video {
+#broadcast-image.active,
+#broadcast-video.active {
   display: block;
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 2;
-  background: #000;
-  object-fit: cover;
-}
-
-/* STATUS */
-
-.broadcast .status {
-  position: absolute;
-  left: 12px;
-  bottom: 10px;
-  z-index: 10;
-  padding: 5px 8px;
-  background: #0009;
-  color: #fff9;
-  font-size: 11px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-
-.broadcast.special-active #youtube-player {
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.broadcast.special-active #special-video {
-  display: block;
-}
-
-/* STATUS */
-
-.broadcast .status {
-  position: absolute;
-  left: 12px;
-  bottom: 10px;
-  z-index: 10;
-  padding: 5px 8px;
-  background: #0009;
-  color: #fff9;
-  font-size: 11px;
-  opacity: 0;
-  pointer-events: none;
 }
 
 /* CONTROLLER */
 
 .controller {
   min-height: 100vh;
+  min-height: 100dvh;
+  height: auto;
   padding: 24px 16px;
   display: grid;
   place-items: center;
   background: #101114;
+  overflow-y: auto;
 }
 
 .panel {
-  width: min(100%, 440px);
+  width: min(100%, 520px);
+  margin: auto;
   padding: 26px 22px;
   background: #191a1f;
   border: 1px solid #303139;
@@ -137,12 +89,14 @@ footer {
   font-size: 14px;
 }
 
+/* HUIDIGE UITZENDING */
+
 .current {
   background: #22232a;
   border: 1px solid #34353e;
   border-radius: 15px;
   padding: 17px;
-  margin-bottom: 16px;
+  margin-bottom: 22px;
 }
 
 .current-title {
@@ -164,6 +118,7 @@ footer {
   height: 8px;
   border-radius: 50%;
   background: #777;
+  flex-shrink: 0;
 }
 
 .dot.online {
@@ -171,40 +126,126 @@ footer {
   box-shadow: 0 0 10px #42c98566;
 }
 
+/* MEDIA GALERIJ */
+
 .actions {
+  display: block;
+}
+
+#media-list {
+  margin-top: 13px;
+}
+
+.media-grid {
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.actions button {
+.media-card {
+  display: block;
   width: 100%;
-  min-height: 58px;
-  border: 0;
-  border-radius: 13px;
-  font: 650 15px inherit;
-  font-size: 15px;
-  cursor: pointer;
-}
-
-.primary {
-  background: #f2f2f3;
-  color: #141519;
-}
-
-.primary span {
-  margin-right: 8px;
-}
-
-.secondary {
-  background: #292a31;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
   color: #f0f0f2;
-  border: 1px solid #3b3c45 !important;
+  background: #22232a;
+  border: 1px solid #3b3c45;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: border-color .18s, background .18s, transform .18s;
 }
 
-.actions button:disabled {
-  opacity: .35;
+.media-card:active {
+  transform: scale(.98);
+}
+
+.media-card:hover {
+  border-color: #777985;
+}
+
+.media-card.is-current {
+  border: 2px solid #42c985;
+  background: #252c2a;
+}
+
+.media-preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: #111216;
+}
+
+.media-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.media-preview-placeholder {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: #bfc0c8;
+  font-size: 34px;
+  background: linear-gradient(135deg, #30313a, #17181d);
+}
+
+.media-card.is-current .media-preview::after {
+  content: "NU ACTIEF";
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 5px 7px;
+  border-radius: 5px;
+  color: #101114;
+  background: #42c985;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.media-info {
+  padding: 11px 12px 13px;
+}
+
+.media-name {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.media-type {
+  display: block;
+  margin-top: 5px;
+  color: #9a9ba5;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+
+.media-card:disabled {
+  opacity: .45;
   cursor: not-allowed;
 }
+
+.media-empty {
+  padding: 18px;
+  color: #9a9ba5;
+  background: #22232a;
+  border: 1px solid #34353e;
+  border-radius: 13px;
+  font-size: 13px;
+}
+
+/* REGIECODE */
 
 .auth {
   margin-top: 24px;
@@ -238,12 +279,16 @@ footer {
   margin: 8px 0 0;
 }
 
+/* MELDINGEN */
+
 .message {
   min-height: 22px;
   margin-top: 15px;
   font-size: 13px;
   color: #d2d2d8;
 }
+
+/* FOOTER */
 
 footer {
   border-top: 1px solid #303139;
@@ -253,8 +298,34 @@ footer {
   text-align: center;
 }
 
+/* GROTERE SCHERMEN */
+
 @media (min-width: 600px) {
   .panel {
     padding: 32px;
+  }
+
+  .media-grid {
+    gap: 14px;
+  }
+}
+
+/* KLEINE TELEFOONS */
+
+@media (max-width: 360px) {
+  .controller {
+    padding: 14px 10px;
+  }
+
+  .panel {
+    padding: 20px 15px;
+  }
+
+  .media-grid {
+    gap: 8px;
+  }
+
+  .media-info {
+    padding: 9px;
   }
 }
