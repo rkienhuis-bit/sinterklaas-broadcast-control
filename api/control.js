@@ -1,14 +1,11 @@
 
-const MEDIA = {
-  "Padel_V2.jpg": "image",
-  "Padel_V3.jpg": "image",
-  "Padel_V5 (2).jpg": "image",
-  "kling_20261113_VIDEO_make_a_sho_5488_0.mp4": "video"
-};
+const mediaItems = require('../media.json');
 
 module.exports = async (req, res) => {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== 'POST') {
+    return res.status(405).json({
+      error: 'Method not allowed'
+    });
   }
 
   const { pin, media } = req.body || {};
@@ -17,14 +14,19 @@ module.exports = async (req, res) => {
     !process.env.CONTROLLER_PIN ||
     pin !== process.env.CONTROLLER_PIN
   ) {
-    return res.status(401).json({ error: "Onjuiste regiecode" });
+    return res.status(401).json({
+      error: 'Onjuiste regiecode'
+    });
   }
 
-  const mode = MEDIA[media];
+  const selected = mediaItems.find(item =>
+    item.file === media &&
+    ['image', 'video'].includes(item.type)
+  );
 
-  if (!mode) {
+  if (!selected) {
     return res.status(400).json({
-      error: "Onbekend mediabestand"
+      error: 'Deze content bestaat niet in de medialijst.'
     });
   }
 
@@ -33,51 +35,49 @@ module.exports = async (req, res) => {
 
   if (!base || !key) {
     return res.status(500).json({
-      error: "Serverconfiguratie ontbreekt"
+      error: 'Serverconfiguratie ontbreekt.'
     });
   }
 
-  const update = {
-    mode,
-    command_id: media,
-    updated_at: new Date().toISOString()
-  };
-
   try {
     const response = await fetch(
-      `${base.replace(/\/$/, "")}/rest/v1/broadcast_state?id=eq.1`,
+      `${base.replace(/\/$/, '')}/rest/v1/broadcast_state?id=eq.1`,
       {
-        method: "PATCH",
+        method: 'PATCH',
         headers: {
           apikey: key,
           Authorization: `Bearer ${key}`,
-          "Content-Type": "application/json",
-          Prefer: "return=minimal"
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal'
         },
-        body: JSON.stringify(update)
+        body: JSON.stringify({
+          mode: selected.type,
+          command_id: selected.file,
+          updated_at: new Date().toISOString()
+        })
       }
     );
 
     if (!response.ok) {
       const error = await response.text();
-      console.error("Supabase update error:", error);
+      console.error('Supabase update error:', error);
 
       return res.status(502).json({
-        error: "Supabase kon de opdracht niet opslaan"
+        error: 'Supabase kon de opdracht niet opslaan.'
       });
     }
 
     return res.status(200).json({
       ok: true,
-      media,
-      mode
+      media: selected.file,
+      name: selected.name
     });
 
   } catch (error) {
-    console.error("Control API error:", error);
+    console.error('Control API error:', error);
 
     return res.status(500).json({
-      error: "Interne serverfout"
+      error: 'Er ging iets mis bij het versturen van de opdracht.'
     });
   }
 };
