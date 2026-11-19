@@ -1,21 +1,26 @@
 
 (() => {
   const cfg = window.APP_CONFIG;
-  const status = document.getElementById('status');
+
+  const image = document.getElementById('broadcast-image');
   const video = document.getElementById('broadcast-video');
 
-  if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
+  const MEDIA = {
+    'Padel_V2.jpg': 'image',
+    'Padel_V3.jpg': 'image',
+    'Padel_V5 (2).jpg': 'image',
+    'kling_20261113_VIDEO_make_a_sho_5488_0.mp4': 'video'
+  };
+
+  const DEFAULT_MEDIA = 'Padel_V2.jpg';
+
+  if (!cfg?.SUPABASE_URL || !cfg?.SUPABASE_ANON_KEY) {
     console.error('Supabase-configuratie ontbreekt');
     return;
   }
 
-  if (!cfg.SPECIAL_VIDEO_URL) {
-    console.error('Sinterklaasvideo ontbreekt in config.js');
-    return;
-  }
-
-  if (!window.Hls) {
-    console.error('Hls.js kon niet worden geladen');
+  if (!window.supabase) {
+    console.error('Supabase library kon niet worden geladen');
     return;
   }
 
@@ -24,228 +29,105 @@
     cfg.SUPABASE_ANON_KEY
   );
 
-  // Vercel-proxy naar de testvideo op Dropbox.
-  const FIREPLACE_SEGMENT_URL =
-    'https://sinterklaas-broadcast-control.vercel.app/api/fireplace';
+  let currentMedia = null;
+  let lastUpdatedAt = null;
 
-  // Byte-ranges van de 40 seconden durende testvideo.
-  const ranges = [
-    '739780@0',
-    '689584@739780',
-    '533544@1429364',
-    '529408@1962908',
-    '599156@2492316',
-    '505720@3091472',
-    '516436@3597192',
-    '607992@4113628',
-    '558924@4721620',
-    '537868@5280544'
-  ];
-
-  const playlistLines = [
-    '#EXTM3U',
-    '#EXT-X-VERSION:4',
-    '#EXT-X-TARGETDURATION:4',
-    '#EXT-X-MEDIA-SEQUENCE:0',
-    '#EXT-X-PLAYLIST-TYPE:VOD'
-  ];
-
-  ranges.forEach((range) => {
-    playlistLines.push('#EXTINF:4.000000,');
-    playlistLines.push('#EXT-X-BYTERANGE:' + range);
-    playlistLines.push(FIREPLACE_SEGMENT_URL);
-  });
-
-  playlistLines.push('#EXT-X-ENDLIST');
-
-  const playlistBlob = new Blob(
-    [playlistLines.join('\n')],
-    { type: 'application/vnd.apple.mpegurl' }
-  );
-
-  const fireplacePlaylistUrl =
-    URL.createObjectURL(playlistBlob);
-
-  let hls = null;
-  let currentMode = null;
-  let lastCommand = null;
-  let lastAudioCommand = null;
-  let playbackToken = 0;
-
-  function setScreen(mode) {
-    document.body.classList.toggle(
-      'special-active',
-      mode === 'special'
-    );
-  }
-
-  function destroyHls() {
-    if (hls) {
-      hls.destroy();
-      hls = null;
-    }
-  }
-
-  async function startPlayback(token, mode) {
-    try {
-      await video.play();
-
-      if (token !== playbackToken) return;
-
-      console.log(mode + ' gestart');
-
-    } catch (error) {
-      if (token !== playbackToken) return;
-
-      console.error('Automatisch afspelen mislukt:', error);
-    }
-  }
-
-  function playFireplace() {
-    const token = ++playbackToken;
-
-    currentMode = 'fireplace';
-    lastCommand = null;
-
-    setScreen('fireplace');
-    destroyHls();
-
+  function showImage(filename, updatedAt) {
     video.pause();
     video.removeAttribute('src');
+    video.load();
+    video.classList.remove('active');
+
+    image.classList.add('active');
+
+    const version = updatedAt
+      ? `?v=${encodeURIComponent(updatedAt)}`
+      : '';
+
+    image.src = `/images/${encodeURIComponent(filename)}${version}`;
+
+    console.log('Afbeelding weergegeven:', filename);
+  }
+
+  async function showVideo(filename) {
+    image.classList.remove('active');
+    image.removeAttribute('src');
+
+    video.classList.add('active');
+    video.pause();
     video.loop = true;
     video.muted = true;
-    video.volume = 1;
+    video.volume = 0;
+
+    video.src = `/images/${encodeURIComponent(filename)}`;
     video.load();
 
-    console.log('Open haard laden via HLS');
-
-    if (status) {
-      status.textContent = 'Open haard laden...';
-    }
-
-    if (Hls.isSupported()) {
-      hls = new Hls();
-
-      hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal && token === playbackToken) {
-          console.error('HLS-fout:', data.type, data.details);
-        }
-      });
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        if (token !== playbackToken) return;
-
-        console.log('Openhaard-playlist geladen');
-
-        startPlayback(token, 'Open haard');
-      });
-
-      hls.loadSource(fireplacePlaylistUrl);
-      hls.attachMedia(video);
-
-    } else if (
-      video.canPlayType('application/vnd.apple.mpegurl')
-    ) {
-      video.src = fireplacePlaylistUrl;
-      video.load();
-
-      video.addEventListener(
-        'loadedmetadata',
-        () => startPlayback(token, 'Open haard'),
-        { once: true }
-      );
-
-    } else {
-      console.error('Deze speler ondersteunt geen HLS');
+    try {
+      await video.play();
+      console.log('Video gestart:', filename);
+    } catch (error) {
+      console.error('Video automatisch afspelen mislukt:', error);
     }
   }
 
-  function playSpecial(commandId) {
+  function applyMedia(filename, updatedAt) {
+    const mode = MEDIA[filename];
+
+    if (!mode) {
+      console.error('Onbekend mediabestand:', filename);
+      return;
+    }
+
+    // Oudere opdrachten mogen een nieuwere selectie niet overschrijven.
     if (
-      currentMode === 'special' &&
-      lastCommand === commandId
+      updatedAt &&
+      lastUpdatedAt &&
+      Date.parse(updatedAt) < Date.parse(lastUpdatedAt)
     ) {
       return;
     }
 
-    const token = ++playbackToken;
+    if (
+      filename === currentMedia &&
+      updatedAt === lastUpdatedAt
+    ) {
+      return;
+    }
 
-    currentMode = 'special';
-    lastCommand = commandId;
+    currentMedia = filename;
+    lastUpdatedAt = updatedAt || null;
 
-    setScreen('special');
-    destroyHls();
-
-    console.log('Sinterklaas START ontvangen:', commandId);
-
-    video.pause();
-    video.removeAttribute('src');
-    video.loop = false;
-    video.muted = true;
-    video.volume = 1;
-    video.src = cfg.SPECIAL_VIDEO_URL;
-    video.load();
-
-    startPlayback(token, 'Sinterklaas');
+    if (mode === 'image') {
+      showImage(filename, updatedAt);
+    } else {
+      showVideo(filename);
+    }
   }
 
-  function activateAudio(commandId) {
-    if (lastAudioCommand === commandId) return;
+  // Start met de standaardafbeelding.
+  applyMedia(DEFAULT_MEDIA, null);
 
-    lastAudioCommand = commandId;
+  // Haal de laatst gekozen media op uit Supabase.
+  async function loadCurrentState() {
+    const { data, error } = await db
+      .from('broadcast_state')
+      .select('mode, command_id, updated_at')
+      .eq('id', 1)
+      .single();
 
-    console.log('Audio-opdracht ontvangen');
+    if (error) {
+      console.error('Supabase-status ophalen mislukt:', error);
+      return;
+    }
 
-    video.muted = false;
-    video.volume = 1;
-
-    console.log('Geluid aangezet. Browser kan dit nog blokkeren.');
+    if (MEDIA[data.command_id]) {
+      applyMedia(data.command_id, data.updated_at);
+    } else {
+      console.log('Geen geldige media geselecteerd; standaardafbeelding blijft staan.');
+    }
   }
 
-  video.addEventListener('ended', () => {
-    if (currentMode === 'special') {
-      console.log('Sinterklaasvideo afgelopen');
-      playFireplace();
-    }
-  });
-
-  video.addEventListener('error', () => {
-    console.error('Videofout:', video.error);
-  });
-
-  // Een lokale klik kan geluid activeren wanneer dat mogelijk is.
-  document.addEventListener('click', async () => {
-    video.muted = false;
-    video.volume = 1;
-
-    try {
-      await video.play();
-      console.log('Geluid geactiveerd via lokale klik');
-    } catch (error) {
-      console.error('Geluid activeren mislukt:', error);
-    }
-  }, { once: true });
-
-  // Start standaard met de open haard.
-  playFireplace();
-
-  // Controleer de huidige status in Supabase.
-  db.from('broadcast_state')
-    .select('mode,command_id')
-    .eq('id', 1)
-    .single()
-    .then(({ data, error }) => {
-      if (error) {
-        console.error('Supabase-status ophalen mislukt:', error);
-        return;
-      }
-
-      if (data.mode === 'special') {
-        playSpecial(data.command_id);
-      }
-    });
-
-  // Luister naar nieuwe opdrachten vanaf de telefoon.
+  // Luister naar nieuwe selecties vanaf de telefoon.
   db.channel('broadcast-control')
     .on(
       'postgres_changes',
@@ -258,26 +140,28 @@
       (payload) => {
         const state = payload.new;
 
-        console.log('Nieuwe controlleropdracht:', state);
+        console.log('Nieuwe mediaopdracht:', state);
 
-        if (state.command_id?.startsWith('audio-')) {
-          activateAudio(state.command_id);
-          return;
-        }
-
-        if (state.mode === 'special') {
-          playSpecial(state.command_id);
-        }
-
-        if (state.mode === 'fireplace') {
-          playFireplace();
-        }
+        applyMedia(state.command_id, state.updated_at);
       }
     )
-    .subscribe((state) => {
-      if (state === 'SUBSCRIBED') {
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
         console.log('Supabase Realtime verbonden');
+        loadCurrentState();
+      }
+
+      if (status === 'CHANNEL_ERROR') {
+        console.error('Supabase Realtime verbindingsfout');
       }
     });
+
+  image.addEventListener('error', () => {
+    console.error('Afbeelding kon niet worden geladen:', image.src);
+  });
+
+  video.addEventListener('error', () => {
+    console.error('Videofout:', video.error);
+  });
 
 })();
