@@ -1,0 +1,23 @@
+
+[
+  {
+    "file": "Padel_V2.jpg",
+    "name": "Padel afbeelding 1",
+    "type": "image"
+  },
+  {
+    "file": "Padel_V3.jpg",
+    "name": "Padel afbeelding 2",
+    "type": "image"
+  },
+  {
+    "file": "Padel_V5 (2).jpg",
+    "name": "Padel afbeelding 3",
+    "type": "image"
+  },
+  {
+    "file": "kling_20261113_VIDEO_make_a_sho_5488_0.mp4",
+    "name": "Padel video",
+    "type": "video"
+  }
+]
