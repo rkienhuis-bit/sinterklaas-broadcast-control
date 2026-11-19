@@ -20,21 +20,30 @@
       font-family: Arial, sans-serif;
     }
 
-    #broadcast-image,
-    #broadcast-video {
-      display: none;
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      background: #000;
-    }
+  #broadcast-image,
+#broadcast-video {
+  display: none;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  opacity: 0;
+  transition: opacity 1000ms ease-in-out;
+}
 
-    #broadcast-image.active,
-    #broadcast-video.active {
-      display: block;
-    }
+#broadcast-image.active,
+#broadcast-video.active {
+  display: block;
+  opacity: 1;
+}
+
+#broadcast-image.fading,
+#broadcast-video.fading {
+  display: block;
+  opacity: 0;
+}
 
     #status {
       display: none;
