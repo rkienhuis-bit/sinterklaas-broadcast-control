@@ -5,22 +5,8 @@
   const image = document.getElementById('broadcast-image');
   const video = document.getElementById('broadcast-video');
 
-  const MEDIA = {
-    'Padel_V2.jpg': 'image',
-    'Padel_V3.jpg': 'image',
-    'Padel_V5 (2).jpg': 'image',
-    'kling_20261113_VIDEO_make_a_sho_5488_0.mp4': 'video'
-  };
-
-  const DEFAULT_MEDIA = 'Padel_V2.jpg';
-
   if (!cfg?.SUPABASE_URL || !cfg?.SUPABASE_ANON_KEY) {
-    console.error('Supabase-configuratie ontbreekt');
-    return;
-  }
-
-  if (!window.supabase) {
-    console.error('Supabase library kon niet worden geladen');
+    console.error('Supabase-configuratie ontbreekt.');
     return;
   }
 
@@ -29,85 +15,118 @@
     cfg.SUPABASE_ANON_KEY
   );
 
-  let currentMedia = null;
-  let lastUpdatedAt = null;
+  let mediaItems = [];
+  let currentFile = null;
+  let playbackToken = 0;
 
-  function showImage(filename, updatedAt) {
+  function findMedia(file) {
+    return mediaItems.find(item => item.file === file);
+  }
+
+  function showImage(item) {
+    const token = ++playbackToken;
+
     video.pause();
     video.removeAttribute('src');
     video.load();
     video.classList.remove('active');
 
-    image.classList.add('active');
+    image.classList.remove('active');
 
-    const version = updatedAt
-      ? `?v=${encodeURIComponent(updatedAt)}`
-      : '';
+    image.onload = () => {
+      if (token !== playbackToken) return;
+      image.classList.add('active');
+      console.log('Afbeelding actief:', item.name);
+    };
 
-    image.src = `/images/${encodeURIComponent(filename)}${version}`;
+    image.onerror = () => {
+      if (token !== playbackToken) return;
+      console.error('Afbeelding kon niet worden geladen:', item.file);
+    };
 
-    console.log('Afbeelding weergegeven:', filename);
+    image.src = `/images/${encodeURIComponent(item.file)}`;
   }
 
-  async function showVideo(filename) {
-    image.classList.remove('active');
-    image.removeAttribute('src');
+  async function showVideo(item) {
+    const token = ++playbackToken;
 
-    video.classList.add('active');
+    image.classList.remove('active');
+
     video.pause();
+    video.removeAttribute('src');
+
     video.loop = true;
     video.muted = true;
     video.volume = 0;
+    video.playsInline = true;
 
-    video.src = `/images/${encodeURIComponent(filename)}`;
+    video.src = `/images/${encodeURIComponent(item.file)}`;
+    video.classList.add('active');
     video.load();
 
     try {
       await video.play();
-      console.log('Video gestart:', filename);
+
+      if (token !== playbackToken) return;
+
+      console.log('Video actief:', item.name);
     } catch (error) {
-      console.error('Video automatisch afspelen mislukt:', error);
+      if (token !== playbackToken) return;
+      console.error('Video afspelen mislukt:', error);
     }
   }
 
-  function applyMedia(filename, updatedAt) {
-    const mode = MEDIA[filename];
+  function showMedia(file, updatedAt) {
+    const item = findMedia(file);
 
-    if (!mode) {
-      console.error('Onbekend mediabestand:', filename);
+    if (!item) {
+      console.warn('Onbekend mediabestand:', file);
       return;
     }
 
-    // Oudere opdrachten mogen een nieuwere selectie niet overschrijven.
-    if (
-      updatedAt &&
-      lastUpdatedAt &&
-      Date.parse(updatedAt) < Date.parse(lastUpdatedAt)
-    ) {
-      return;
-    }
+    const commandKey = `${file}|${updatedAt || ''}`;
 
-    if (
-      filename === currentMedia &&
-      updatedAt === lastUpdatedAt
-    ) {
-      return;
-    }
+    if (commandKey === currentFile) return;
+    currentFile = commandKey;
 
-    currentMedia = filename;
-    lastUpdatedAt = updatedAt || null;
+    console.log('Nieuwe uitzending:', item.name);
 
-    if (mode === 'image') {
-      showImage(filename, updatedAt);
-    } else {
-      showVideo(filename);
+    if (item.type === 'image') {
+      showImage(item);
+    } else if (item.type === 'video') {
+      showVideo(item);
     }
   }
 
-  // Start met de standaardafbeelding.
-  applyMedia(DEFAULT_MEDIA, null);
+  async function loadMedia() {
+    const response = await fetch('/media.json', {
+      cache: 'no-store'
+    });
 
-  // Haal de laatst gekozen media op uit Supabase.
+    if (!response.ok) {
+      throw new Error('media.json kon niet worden geladen.');
+    }
+
+    const data = await response.json();
+
+    if (!Array.isArray(data)) {
+      throw new Error('Ongeldig media.json-bestand.');
+    }
+
+    mediaItems = data.filter(item =>
+      item &&
+      typeof item.file === 'string' &&
+      typeof item.name === 'string' &&
+      ['image', 'video'].includes(item.type) &&
+      !item.file.includes('/') &&
+      !item.file.includes('\\')
+    );
+
+    if (!mediaItems.length) {
+      throw new Error('Geen geldige media gevonden.');
+    }
+  }
+
   async function loadCurrentState() {
     const { data, error } = await db
       .from('broadcast_state')
@@ -120,48 +139,51 @@
       return;
     }
 
-    if (MEDIA[data.command_id]) {
-      applyMedia(data.command_id, data.updated_at);
+    if (findMedia(data.command_id)) {
+      showMedia(data.command_id, data.updated_at);
     } else {
-      console.log('Geen geldige media geselecteerd; standaardafbeelding blijft staan.');
+      showMedia('Padel_V2.jpg', 'default');
     }
   }
 
-  // Luister naar nieuwe selecties vanaf de telefoon.
-  db.channel('broadcast-control')
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'broadcast_state',
-        filter: 'id=eq.1'
-      },
-      (payload) => {
-        const state = payload.new;
+  async function start() {
+    try {
+      await loadMedia();
 
-        console.log('Nieuwe mediaopdracht:', state);
+      // Toon direct de standaardafbeelding.
+      const defaultImage = findMedia('Padel_V2.jpg');
 
-        applyMedia(state.command_id, state.updated_at);
-      }
-    )
-    .subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        console.log('Supabase Realtime verbonden');
-        loadCurrentState();
+      if (defaultImage) {
+        showMedia(defaultImage.file, 'default');
       }
 
-      if (status === 'CHANNEL_ERROR') {
-        console.error('Supabase Realtime verbindingsfout');
-      }
-    });
+      db.channel('broadcast-control')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'broadcast_state',
+            filter: 'id=eq.1'
+          },
+          payload => {
+            const state = payload.new;
+            showMedia(state.command_id, state.updated_at);
+          }
+        )
+        .subscribe(status => {
+          if (status === 'SUBSCRIBED') {
+            console.log('Supabase Realtime verbonden.');
+            loadCurrentState();
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('Supabase Realtime verbindingsfout.');
+          }
+        });
 
-  image.addEventListener('error', () => {
-    console.error('Afbeelding kon niet worden geladen:', image.src);
-  });
+    } catch (error) {
+      console.error('Broadcast starten mislukt:', error);
+    }
+  }
 
-  video.addEventListener('error', () => {
-    console.error('Videofout:', video.error);
-  });
-
+  start();
 })();
